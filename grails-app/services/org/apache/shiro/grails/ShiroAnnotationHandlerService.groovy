@@ -36,7 +36,10 @@ class ShiroAnnotationHandlerService implements InitializingBean {
     }
 
     def getHandlersFor(String controller, String action) {
-        def handlers = handlerMap["${controller}:${action}"]
+        String methodName = action ?: "index"
+        
+        def handlers = handlerMap["${controller}:${methodName}"]
+
         return handlers ?: []
     }
 
@@ -46,7 +49,7 @@ class ShiroAnnotationHandlerService implements InitializingBean {
         def authzAnnotations = authzHandlers.keySet()
 
         // We start by checking out the annotations on the class. These
-        // can be overridden by the action (field) annotations.
+        // can be overridden by the action (method) annotations.
         def authcClassHandler = null
         def authzClassHandler = null
         def clazz = controllerClass.clazz
@@ -60,15 +63,15 @@ class ShiroAnnotationHandlerService implements InitializingBean {
             }
         }
 
-        // Next, we go through the controller's fields
-        clazz.declaredFields.each { field ->
-            // At the start, this field uses the class annotation handlers.
+        // Next, we go through the controller's methods
+        clazz.declaredMethods.each { method ->
+            // At the start, this method uses the class annotation handlers.
             def authcHandler = authcClassHandler
             def authzHandler = authzClassHandler
 
-            // Go through the field's annotations and check whether any are
+            // Go through the method's annotations and check whether any are
             // Shiro requirements.
-            field.declaredAnnotations.each { ann ->
+            method.declaredAnnotations.each { ann ->
                 def annClass = ann.annotationType()
                 if (annClass in authcAnnotations) {
                     authcHandler = [ ann, authcHandlers[annClass] ]
@@ -80,7 +83,7 @@ class ShiroAnnotationHandlerService implements InitializingBean {
 
             // Create combined annotations + handlers where required and add
             // them to the handler map.
-            def handlerKey = controllerClass.logicalPropertyName + ":" + field.name
+            def handlerKey = controllerClass.logicalPropertyName + ":" + method.name
             handlerMap[handlerKey] = []
 
             if (authcHandler) {
